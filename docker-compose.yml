@@ -1,30 +1,70 @@
 version: "3.8"
 
 services:
-  api-gateway:
-    build: ./api-gateway
-    ports:
-      - "3000:3000"
-    depends_on:
-      - auth-service
-
-  auth-service:
-    build: ./services/auth-service
-    ports:
-      - "4001:4001"
-    environment:
-      - MYSQL_HOST=db
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=root
-      - MYSQL_DATABASE=authDB
-    depends_on:
-      - db
-
-  db:
-    image: mysql:8.0
+  # PostgreSQL (Dùng chung cho Auth, Order, Table, Payment)
+  postgres:
+    image: postgres:15
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: authDB
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: restaunrant-manager
     ports:
-      - "3306:3306"
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+
+  # MongoDB (Dùng cho Dish Service & Kitchen Service)
+  mongo:
+    image: mongo:6
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app_network
+
+  # Redis (Cache trạng thái bàn & món ăn)
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - app_network
+
+  # RabbitMQ (Giao tiếp giữa Order, Kitchen, Payment)
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - app_network
+
+  # ClickHouse (Dùng cho Statistical Service)
+  clickhouse:
+    image: yandex/clickhouse-server
+    restart: always
+    ports:
+      - "8123:8123"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+  clickhouse_data:
